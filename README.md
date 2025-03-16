@@ -16,7 +16,6 @@ technologies d'IA en Afrique centrale.
 - 🔍 Recherche d'objets similaires
 - 📊 Affichage des scores de confiance
 - 💫 Interface utilisateur moderne et intuitive
-- 🌍 Support multilingue (Français)
 - 📱 Design responsive (mobile, tablette, desktop)
 
 ## 🛠️ Technologies Utilisées
@@ -57,17 +56,7 @@ cd opencv-talk
 CREATE EXTENSION vector;
 ```
 
-3. **Configurer l'application**
-
-```bash
-# Copier le fichier de configuration exemple
-cp src/main/resources/application.properties.example src/main/resources/application.properties
-
-# Éditer le fichier avec vos paramètres
-nano src/main/resources/application.properties
-```
-
-4. **Installer les dépendances et compiler**
+3**Installer les dépendances et compiler**
 
 ```bash
 mvn clean install
@@ -112,10 +101,8 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 
 ## 📞 Contact
 
-- Email : votre.email@example.com
-- Site Web : https://votresite.ga
-- Twitter : [@votrecompte](https://twitter.com/votrecompte)
-- LinkedIn : [Votre Profil](https://linkedin.com/in/votreprofil)
+- LinkedIn : [BANGA Romaric](https://www.linkedin.com/in/romaric-banga/)
+- Twitter : [@bangaromaric](https://x.com/bangaromaric)
 
 ## 🙏 Remerciements
 
