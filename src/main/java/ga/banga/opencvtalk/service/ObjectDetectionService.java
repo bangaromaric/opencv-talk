@@ -1,12 +1,13 @@
 package ga.banga.opencvtalk.service;
 
+import ga.banga.opencvtalk.config.YoloProperties;
+import ga.banga.opencvtalk.exception.OpenCVProcessingException;
 import ga.banga.opencvtalk.model.ObjectDetection;
 import ga.banga.opencvtalk.repository.ObjectDetectionRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.javacpp.FloatPointer;
-import org.bytedeco.javacpp.IntPointer;
 import org.bytedeco.opencv.opencv_core.*;
 import org.bytedeco.opencv.opencv_dnn.Net;
 import org.springframework.core.io.ClassPathResource;
@@ -43,13 +44,15 @@ public class ObjectDetectionService {
     private final Net featureExtractor; // Extracteur de features dédié
     private final List<String> classes;
     private final DataSource dataSource;
+    private final YoloProperties yoloProperties;
     @PersistenceContext
     private EntityManager entityManager;
 
-    public ObjectDetectionService(ObjectDetectionRepository repository, FileStorageService fileStorageService, DataSource dataSource) throws IOException {
+    public ObjectDetectionService(ObjectDetectionRepository repository, FileStorageService fileStorageService, DataSource dataSource, YoloProperties yoloProperties) throws IOException {
         this.repository = repository;
         this.fileStorageService = fileStorageService;
         this.dataSource = dataSource;
+        this.yoloProperties = yoloProperties;
 
         // Charger les noms des classes
         classes = new ArrayList<>();
@@ -204,9 +207,7 @@ public class ObjectDetectionService {
 
         // Charger et prétraiter l'image
         Mat image = imread(fullPath);
-        if (image.empty()) {
-            throw new IOException("Impossible de charger l'image: " + fullPath);
-        }
+        validateImageDimensions(image);
 
         System.out.println("Dimensions de l'image: " + image.cols() + "x" + image.rows());
 
@@ -223,9 +224,7 @@ public class ObjectDetectionService {
             System.out.println("Nombre de sorties du réseau: " + outs.size());
 
             // Post-traitement
-            List<Rect> boxesList = new ArrayList<>();
-            List<Float> confidencesList = new ArrayList<>();
-            List<Integer> classIdsList = new ArrayList<>();
+            List<DetectionResult> detections = new ArrayList<>();
 
             // Analyser les sorties
             for (int i = 0; i < outs.size(); ++i) {
@@ -246,127 +245,64 @@ public class ObjectDetectionService {
                         float width = data.get((long) j * output.cols() + 2) * image.cols();
                         float height = data.get((long) j * output.cols() + 3) * image.rows();
 
-                        System.out.println("Détection trouvée - Classe: " + classes.get(classIdPoint.x()) +
-                                ", Confiance: " + String.format("%.2f", confidence.get()));
+                        // Calculer les coordonnées de la boîte
+                        int x = Math.max(0, (int) (centerX - width / 2));
+                        int y = Math.max(0, (int) (centerY - height / 2));
+                        width = Math.min(image.cols() - x, (int) width);
+                        height = Math.min(image.rows() - y, (int) height);
 
-                        boxesList.add(new Rect(
-                                (int) (centerX - width / 2),
-                                (int) (centerY - height / 2),
-                                (int) width,
-                                (int) height
-                        ));
-                        confidencesList.add((float) confidence.get());
-                        classIdsList.add(classIdPoint.x());
-                    }
-                }
-            }
+                        // Vérifier si la boîte est valide
+                        if (yoloProperties.isValidBoundingBox(x, y, (int) width, (int) height, image.cols(), image.rows())) {
+                            System.out.println("Détection valide - Classe: " + classes.get(classIdPoint.x()) +
+                                    ", Confiance: " + String.format("%.2f", confidence.get()) +
+                                    ", Box: [" + x + "," + y + "," + width + "," + height + "]");
 
-            System.out.println("Nombre total de détections avant NMS: " + boxesList.size());
-
-            if (boxesList.isEmpty()) {
-                // Essayer avec un seuil plus bas si aucune détection
-                float lowerThreshold = 0.1f;
-                System.out.println("Aucune détection avec le seuil standard. Tentative avec un seuil plus bas: " + lowerThreshold);
-
-                // Réinitialiser les listes
-                boxesList.clear();
-                confidencesList.clear();
-                classIdsList.clear();
-
-                // Refaire l'analyse avec un seuil plus bas
-                for (int i = 0; i < outs.size(); ++i) {
-                    Mat output = outs.get(i);
-                    FloatPointer data = new FloatPointer(output.ptr());
-
-                    for (int j = 0; j < output.rows(); ++j) {
-                        Mat scores = output.row(j).colRange(5, output.cols());
-                        Point classIdPoint = new Point();
-                        DoublePointer confidence = new DoublePointer(1);
-                        minMaxLoc(scores, null, confidence, null, classIdPoint, null);
-
-                        if (confidence.get() > lowerThreshold) {
-                            float centerX = data.get((long) j * output.cols()) * image.cols();
-                            float centerY = data.get((long) j * output.cols() + 1) * image.rows();
-                            float width = data.get((long) j * output.cols() + 2) * image.cols();
-                            float height = data.get((long) j * output.cols() + 3) * image.rows();
-
-                            System.out.println("Détection trouvée (seuil bas) - Classe: " + classes.get(classIdPoint.x()) +
-                                    ", Confiance: " + String.format("%.2f", confidence.get()));
-
-                            boxesList.add(new Rect(
-                                    (int) (centerX - width / 2),
-                                    (int) (centerY - height / 2),
-                                    (int) width,
-                                    (int) height
+                            detections.add(new DetectionResult(
+                                    x, y, (int) width, (int) height,
+                                    (float) confidence.get(),
+                                    classIdPoint.x()
                             ));
-                            confidencesList.add((float) confidence.get());
-                            classIdsList.add(classIdPoint.x());
+                        } else {
+                            System.out.println("Détection ignorée - Boîte invalide: " + classes.get(classIdPoint.x()));
                         }
                     }
                 }
             }
 
-            if (boxesList.isEmpty()) {
-                throw new RuntimeException("Aucun objet détecté avec une confiance suffisante. Essayez avec une image plus claire ou un autre angle.");
+            System.out.println("Nombre total de détections valides: " + detections.size());
+
+            if (detections.isEmpty()) {
+                throw new OpenCVProcessingException("Aucun objet détecté avec une confiance suffisante. Essayez avec une image plus claire ou un autre angle.");
             }
 
-            // Préparer les données pour NMS
-            RectVector boxes = new RectVector(boxesList.size());
-            FloatPointer confidences = new FloatPointer(confidencesList.size());
-            IntPointer classIds = new IntPointer(classIdsList.size());
+            // Trier par confiance et prendre la meilleure détection
+            DetectionResult bestDetection = detections.stream()
+                    .max((d1, d2) -> Float.compare(d1.confidence, d2.confidence))
+                    .orElseThrow(() -> new OpenCVProcessingException("Erreur lors de la sélection de la meilleure détection"));
 
-            for (int i = 0; i < boxesList.size(); i++) {
-                boxes.put(i, boxesList.get(i));
-                confidences.put(i, confidencesList.get(i));
-                classIds.put(i, classIdsList.get(i));
-            }
+            // Extraire la ROI avec la méthode sécurisée
+            Mat roi = cropDetection(image,
+                    bestDetection.x,
+                    bestDetection.y,
+                    bestDetection.width,
+                    bestDetection.height
+            );
 
-            // Non-maximum suppression
-            IntPointer indices = new IntPointer(confidences.capacity());
-            NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, NMS_THRESHOLD, indices);
-
-            // Prendre la détection avec la plus haute confiance
-            if (indices.capacity() > 0) {
-                int idx = indices.get(0);
-                String detectedClass = classes.get(classIds.get(idx));
-                float confidence = confidences.get(idx);
-
-                // Extraire la ROI
-                Rect box = boxes.get(idx);
-                Mat roi = new Mat(image, box);
-
-                // Extraire les features avec le modèle dédié
+            try {
+                // Extraire les features
                 float[] embedding = extractFeatures(roi);
-
-                // Log pour vérifier la taille avant la création de l'objet
-                System.out.println("Taille du vecteur avant création de l'objet: " + embedding.length);
-
-                // Vérifier quelques valeurs du vecteur
-                System.out.println("Échantillon des 5 premières valeurs du vecteur:");
-                for (int i = 0; i < Math.min(5, embedding.length); i++) {
-                    System.out.println("embedding[" + i + "] = " + embedding[i]);
-                }
 
                 // Créer et sauvegarder l'objet détecté
                 ObjectDetection detection = new ObjectDetection();
                 detection.setImagePath(fileName);
                 detection.setEmbedding(embedding);
-                detection.setObjectClass(detectedClass);
-                detection.setConfidence(confidence);
+                detection.setObjectClass(classes.get(bestDetection.classId));
+                detection.setConfidence(bestDetection.confidence);
 
-                // Log pour vérifier la taille après la création de l'objet
-                System.out.println("Taille du vecteur dans l'objet: " + detection.getEmbedding().length);
-
-                // Sauvegarder et récupérer l'objet
-                ObjectDetection savedDetection = repository.save(detection);
-
-                // Log pour vérifier la taille après la sauvegarde
-                System.out.println("Taille du vecteur après sauvegarde: " + savedDetection.getEmbedding().length);
-
-                return savedDetection;
+                return repository.save(detection);
+            } finally {
+                if (roi != null) roi.release();
             }
-
-            throw new RuntimeException("Aucun objet détecté avec une confiance suffisante");
         } finally {
             // Libérer la mémoire
             image.release();
@@ -493,6 +429,51 @@ public class ObjectDetectionService {
             System.err.println("Erreur SQL complète lors de la recherche par ID: " + e);
             e.printStackTrace();
             throw new RuntimeException("Erreur lors de la recherche de l'objet: " + e.getMessage(), e);
+        }
+    }
+
+    private Mat cropDetection(Mat image, int x, int y, int width, int height) {
+        // Valider les dimensions de la boîte englobante
+        if (!yoloProperties.isValidBoundingBox(x, y, width, height, image.cols(), image.rows())) {
+            throw new OpenCVProcessingException(
+                    String.format("Boîte englobante invalide : (%d,%d,%d,%d) pour une image de taille %dx%d",
+                            x, y, width, height, image.cols(), image.rows())
+            );
+        }
+
+        try {
+            return new Mat(image, new Rect(x, y, width, height));
+        } catch (RuntimeException e) {
+            throw new OpenCVProcessingException("Erreur lors du découpage de l'image", e);
+        }
+    }
+
+    private void validateImageDimensions(Mat image) {
+        if (image.empty()) {
+            throw new OpenCVProcessingException("L'image est vide ou n'a pas pu être chargée");
+        }
+        if (image.cols() < yoloProperties.getMinBoxSize() || image.rows() < yoloProperties.getMinBoxSize()) {
+            throw new OpenCVProcessingException(
+                    String.format("L'image est trop petite : %dx%d (minimum requis : %dx%d)",
+                            image.cols(), image.rows(),
+                            (int) yoloProperties.getMinBoxSize(),
+                            (int) yoloProperties.getMinBoxSize())
+            );
+        }
+    }
+
+    private static class DetectionResult {
+        final int x, y, width, height;
+        final float confidence;
+        final int classId;
+
+        DetectionResult(int x, int y, int width, int height, float confidence, int classId) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.confidence = confidence;
+            this.classId = classId;
         }
     }
 } 
