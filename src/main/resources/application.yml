@@ -1,0 +1,37 @@
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    ga.banga.opencv: DEBUG
+  pattern:
+    console: "%d{dd-MM-yyyy HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"
+
+spring:
+  application:
+    name: opencv
+
+
+  datasource:
+    url: jdbc:postgresql://localhost:5435/opencvtalk
+    username: opencvtalk
+    password:
+
+
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  #      ddl-auto: update
+
+  sql:
+    init:
+      mode: always #Cela garantit que schema.sql est ex�cut� avant la cr�ation des tables.
+
+server:
+  error:
+    include-message: always
+
+app:
+  photo-directory: C:\Users\DELL\IdeaProjects\opencv-talk\photo
+  threshold: 0.7 # Valeur par défaut pour le seuil
+  duplicateThreshold: 0.34

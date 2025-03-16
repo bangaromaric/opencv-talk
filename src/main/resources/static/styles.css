@@ -1,0 +1,420 @@
+:root {
+    --primary-color: #6c5ce7;
+    --primary-hover: #8177e2;
+    --secondary-color: #a8a6ff;
+    --background-dark: #1a1a2e;
+    --background-light: #242438;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --success-color: #00b894;
+    --error-color: #d63031;
+    --border-radius: 12px;
+    --box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    --transition: all 0.3s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-dark);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeIn 0.8s ease-out;
+}
+
+header h1 {
+    font-size: 2.8rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+header p {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    animation: slideUp 0.8s ease-out;
+}
+
+.upload-zone {
+    width: 100%;
+    max-width: 600px;
+    height: 300px;
+    border: 2px dashed var(--primary-color);
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    background-color: var(--background-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-zone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent, rgba(108, 92, 231, 0.1), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+
+.upload-zone:hover::before {
+    transform: translateX(100%);
+}
+
+.upload-zone:hover {
+    border-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow);
+}
+
+.upload-zone.drag-over {
+    border-color: var(--success-color);
+    background-color: rgba(108, 92, 231, 0.1);
+    transform: scale(1.02);
+}
+
+.upload-content {
+    text-align: center;
+    z-index: 1;
+}
+
+.upload-content svg {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    transition: var(--transition);
+    width: 64px;
+    height: 64px;
+}
+
+.upload-zone:hover .upload-content svg {
+    transform: scale(1.1);
+    color: var(--primary-hover);
+}
+
+.upload-content p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+button {
+    padding: 1rem 3rem;
+    font-size: 1.1rem;
+    background-color: var(--primary-color);
+    color: var(--text-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+button:hover:not(:disabled) {
+    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow);
+}
+
+button:disabled {
+    background-color: var(--background-light);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.results-section {
+    background-color: var(--background-light);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    box-shadow: var(--box-shadow);
+    animation: fadeIn 0.8s ease-out;
+}
+
+.results-section h2 {
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+    font-size: 2rem;
+}
+
+.results-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.image-preview {
+    width: 100%;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+    background-color: var(--background-dark);
+    position: relative;
+}
+
+.image-preview img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    transition: var(--transition);
+}
+
+.image-preview:hover img {
+    transform: scale(1.02);
+}
+
+.detection-results {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.detection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    background-color: var(--background-dark);
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    transition: var(--transition);
+    border: 1px solid transparent;
+}
+
+.detection-item:hover {
+    border-color: var(--primary-color);
+    transform: translateX(5px);
+}
+
+.object-class {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.confidence {
+    color: var(--success-color);
+    font-weight: 500;
+    background-color: rgba(0, 184, 148, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
+.similar-objects h3 {
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+}
+
+.similar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.similar-item {
+    background-color: var(--background-dark);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    transition: var(--transition);
+    border: 1px solid transparent;
+}
+
+.similar-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary-color);
+    box-shadow: var(--box-shadow);
+}
+
+.similar-image {
+    width: 100%;
+    height: 150px;
+    overflow: hidden;
+}
+
+.similar-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: var(--transition);
+}
+
+.similar-item:hover .similar-image img {
+    transform: scale(1.1);
+}
+
+.similar-info {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.similar-class {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.similar-confidence {
+    color: var(--success-color);
+    font-size: 0.8rem;
+    background-color: rgba(0, 184, 148, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+.loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(26, 26, 46, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--transition);
+}
+
+.loading.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--background-light);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .results-container {
+        grid-template-columns: 1fr;
+    }
+
+    .upload-zone {
+        height: 200px;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+
+    button {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .similar-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+
+    .similar-image {
+        height: 120px;
+    }
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 1rem 2rem;
+    border-radius: var(--border-radius);
+    background-color: var(--background-light);
+    color: var(--text-primary);
+    box-shadow: var(--box-shadow);
+    animation: slideIn 0.3s ease-out;
+    z-index: 1000;
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid var(--error-color);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
