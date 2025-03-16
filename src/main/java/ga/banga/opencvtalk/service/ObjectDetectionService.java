@@ -34,7 +34,7 @@ public class ObjectDetectionService {
 
     private static final int INPUT_WIDTH = 416;
     private static final int INPUT_HEIGHT = 416;
-    private static final float CONFIDENCE_THRESHOLD = 0.5f;
+    private static final float CONFIDENCE_THRESHOLD = 0.3f;
     private static final float NMS_THRESHOLD = 0.4f;
     private static final int EMBEDDING_SIZE = 1024;
     private final ObjectDetectionRepository repository;
@@ -200,11 +200,15 @@ public class ObjectDetectionService {
         String fileName = fileStorageService.storePhoto(file, objectId);
         String fullPath = fileStorageService.loadPhotoAsResource(fileName).getFile().getAbsolutePath();
 
+        System.out.println("Début de la détection pour l'image: " + fileName);
+
         // Charger et prétraiter l'image
         Mat image = imread(fullPath);
         if (image.empty()) {
             throw new IOException("Impossible de charger l'image: " + fullPath);
         }
+
+        System.out.println("Dimensions de l'image: " + image.cols() + "x" + image.rows());
 
         Mat inputBlob = blobFromImage(image, 1 / 255.0, new Size(INPUT_WIDTH, INPUT_HEIGHT),
                 new Scalar(0, 0, 0, 0), true, false, CV_32F);
@@ -216,6 +220,8 @@ public class ObjectDetectionService {
             StringVector outNames = network.getUnconnectedOutLayersNames();
             network.forward(outs, outNames);
 
+            System.out.println("Nombre de sorties du réseau: " + outs.size());
+
             // Post-traitement
             List<Rect> boxesList = new ArrayList<>();
             List<Float> confidencesList = new ArrayList<>();
@@ -225,6 +231,8 @@ public class ObjectDetectionService {
             for (int i = 0; i < outs.size(); ++i) {
                 Mat output = outs.get(i);
                 FloatPointer data = new FloatPointer(output.ptr());
+
+                System.out.println("Analyse de la sortie " + i + " avec " + output.rows() + " détections");
 
                 for (int j = 0; j < output.rows(); ++j) {
                     Mat scores = output.row(j).colRange(5, output.cols());
@@ -238,6 +246,9 @@ public class ObjectDetectionService {
                         float width = data.get((long) j * output.cols() + 2) * image.cols();
                         float height = data.get((long) j * output.cols() + 3) * image.rows();
 
+                        System.out.println("Détection trouvée - Classe: " + classes.get(classIdPoint.x()) +
+                                ", Confiance: " + String.format("%.2f", confidence.get()));
+
                         boxesList.add(new Rect(
                                 (int) (centerX - width / 2),
                                 (int) (centerY - height / 2),
@@ -250,8 +261,53 @@ public class ObjectDetectionService {
                 }
             }
 
+            System.out.println("Nombre total de détections avant NMS: " + boxesList.size());
+
             if (boxesList.isEmpty()) {
-                throw new RuntimeException("Aucun objet détecté avec une confiance suffisante");
+                // Essayer avec un seuil plus bas si aucune détection
+                float lowerThreshold = 0.1f;
+                System.out.println("Aucune détection avec le seuil standard. Tentative avec un seuil plus bas: " + lowerThreshold);
+
+                // Réinitialiser les listes
+                boxesList.clear();
+                confidencesList.clear();
+                classIdsList.clear();
+
+                // Refaire l'analyse avec un seuil plus bas
+                for (int i = 0; i < outs.size(); ++i) {
+                    Mat output = outs.get(i);
+                    FloatPointer data = new FloatPointer(output.ptr());
+
+                    for (int j = 0; j < output.rows(); ++j) {
+                        Mat scores = output.row(j).colRange(5, output.cols());
+                        Point classIdPoint = new Point();
+                        DoublePointer confidence = new DoublePointer(1);
+                        minMaxLoc(scores, null, confidence, null, classIdPoint, null);
+
+                        if (confidence.get() > lowerThreshold) {
+                            float centerX = data.get((long) j * output.cols()) * image.cols();
+                            float centerY = data.get((long) j * output.cols() + 1) * image.rows();
+                            float width = data.get((long) j * output.cols() + 2) * image.cols();
+                            float height = data.get((long) j * output.cols() + 3) * image.rows();
+
+                            System.out.println("Détection trouvée (seuil bas) - Classe: " + classes.get(classIdPoint.x()) +
+                                    ", Confiance: " + String.format("%.2f", confidence.get()));
+
+                            boxesList.add(new Rect(
+                                    (int) (centerX - width / 2),
+                                    (int) (centerY - height / 2),
+                                    (int) width,
+                                    (int) height
+                            ));
+                            confidencesList.add((float) confidence.get());
+                            classIdsList.add(classIdPoint.x());
+                        }
+                    }
+                }
+            }
+
+            if (boxesList.isEmpty()) {
+                throw new RuntimeException("Aucun objet détecté avec une confiance suffisante. Essayez avec une image plus claire ou un autre angle.");
             }
 
             // Préparer les données pour NMS
@@ -350,11 +406,20 @@ public class ObjectDetectionService {
         String sql = """
                 WITH search_vector AS (
                     SELECT ?::vector as vec
+                ),
+                source_object AS (
+                    SELECT id, object_class
+                    FROM object_detections
+                    WHERE embedding <=> (SELECT vec FROM search_vector) < 0.01
+                    ORDER BY embedding <=> (SELECT vec FROM search_vector) ASC
+                    LIMIT 1
                 )
-                SELECT id, object_class, confidence, image_path,
-                       embedding <=> (SELECT vec FROM search_vector) AS distance
-                FROM object_detections
-                WHERE embedding != (SELECT vec FROM search_vector)
+                SELECT od.id, od.object_class, od.confidence, od.image_path,
+                       od.embedding <=> (SELECT vec FROM search_vector) AS distance
+                FROM object_detections od
+                WHERE od.object_class = (SELECT object_class FROM source_object)
+                AND od.id != (SELECT id FROM source_object)
+                AND od.embedding <=> (SELECT vec FROM search_vector) < 0.8
                 ORDER BY distance ASC
                 LIMIT ?
                 """;
@@ -368,14 +433,11 @@ public class ObjectDetectionService {
                 if (i > 0) {
                     vectorStr.append(",");
                 }
-                // Utiliser String.format avec Locale.US pour garantir le point comme séparateur décimal
                 vectorStr.append(String.format(java.util.Locale.US, "%.8f", embedding[i]));
             }
             vectorStr.append("]");
 
-            // Debug: afficher un échantillon du vecteur
-            System.out.println("Format du vecteur pour pgvector (premiers caractères): " +
-                    vectorStr.substring(0, Math.min(100, vectorStr.length())) + "...");
+            System.out.println("Recherche d'objets similaires avec un vecteur de taille: " + embedding.length);
 
             stmt.setString(1, vectorStr.toString());
             stmt.setInt(2, limit);
@@ -387,6 +449,10 @@ public class ObjectDetectionService {
                     detection.setObjectClass(rs.getString("object_class"));
                     detection.setConfidence(rs.getFloat("confidence"));
                     detection.setImagePath(rs.getString("image_path"));
+                    float distance = rs.getFloat("distance");
+                    System.out.println("Objet trouvé: " + detection.getObjectClass() +
+                            " avec distance: " + distance +
+                            " (id: " + detection.getId() + ")");
                     results.add(detection);
                 }
             }

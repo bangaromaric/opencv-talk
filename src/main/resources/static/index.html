@@ -7,6 +7,207 @@
     <link href="styles.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .preview-container {
+            display: none;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .preview-container.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .preview-title {
+            font-size: 1.1em;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .preview-button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .preview-button.remove {
+            background-color: #ff4757;
+            color: white;
+        }
+
+        .preview-button.remove:hover {
+            background-color: #ff6b81;
+        }
+
+        .preview-image-container {
+            position: relative;
+            max-width: 100%;
+            overflow: hidden;
+            border-radius: 4px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .preview-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .preview-info {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .preview-size {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .preview-dimensions {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .upload-zone {
+            position: relative;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #fff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .upload-zone:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #2196f3;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 0;
+        }
+
+        .upload-zone.hover:not(.has-preview):before {
+            opacity: 0.05;
+        }
+
+        .upload-zone.drag-over {
+            border-color: #2196f3;
+            background: rgba(33, 150, 243, 0.05);
+            transform: scale(1.02);
+        }
+
+        .upload-zone.drag-over:before {
+            opacity: 0.1;
+        }
+
+        .upload-zone.has-preview {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+
+        .upload-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-zone i {
+            color: #666;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone.drag-over i {
+            color: #2196f3;
+            transform: scale(1.1);
+        }
+
+        .upload-zone p {
+            margin: 10px 0;
+            color: #333;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .upload-hint {
+            display: block;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .upload-zone.drag-over {
+            animation: pulse 1.5s infinite;
+        }
+
+        .error-message {
+            color: #ff4757;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error-message.active {
+            display: block;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -25,6 +226,36 @@
                     <span class="upload-hint">Formats supportés: JPG, PNG, GIF</span>
                 </div>
             </div>
+            <div class="error-message" id="errorMessage"></div>
+
+            <div class="preview-container" id="previewContainer">
+                <div class="preview-header">
+                    <div class="preview-title">
+                        <i class="fas fa-image"></i>
+                        <span>Prévisualisation</span>
+                    </div>
+                    <div class="preview-actions">
+                        <button class="preview-button remove" id="removePreview">
+                            <i class="fas fa-trash"></i>
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+                <div class="preview-image-container">
+                    <img alt="Prévisualisation" id="previewImageUpload" src="">
+                </div>
+                <div class="preview-info">
+                    <div class="preview-size">
+                        <i class="fas fa-file-alt"></i>
+                        <span id="previewSize">0 KB</span>
+                    </div>
+                    <div class="preview-dimensions">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                        <span id="previewDimensions">0 x 0</span>
+                    </div>
+                </div>
+            </div>
+
             <button disabled id="uploadButton">
                 <i class="fas fa-search"></i>
                 Analyser l'image
@@ -73,6 +304,12 @@
         const detectedObjects = document.querySelector('.detected-objects');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const imageSizeElement = document.getElementById('imageSize');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImageUpload = document.getElementById('previewImageUpload');
+        const previewSize = document.getElementById('previewSize');
+        const previewDimensions = document.getElementById('previewDimensions');
+        const removePreview = document.getElementById('removePreview');
+        const errorMessage = document.getElementById('errorMessage');
 
         function showLoading() {
             loadingOverlay.classList.add('active');
@@ -93,31 +330,13 @@
             }, 3000);
         }
 
-        // Gestion du drag & drop
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            handleFile(file);
-        });
-
-        dropZone.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            handleFile(file);
-        });
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('active');
+            setTimeout(() => {
+                errorMessage.classList.remove('active');
+            }, 3000);
+        }
 
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
@@ -128,19 +347,125 @@
         }
 
         function handleFile(file) {
-            if (file && file.type.startsWith('image/')) {
-                uploadButton.disabled = false;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewImage.src = e.target.result;
-                    imageSizeElement.textContent = formatFileSize(file.size);
-                };
-                reader.readAsDataURL(file);
-                showToast('Image chargée avec succès', 'success');
-            } else {
-                showToast('Format de fichier non supporté', 'error');
+            if (!file) {
+                showError('Aucun fichier sélectionné');
+                return;
             }
+
+            if (!file.type.startsWith('image/')) {
+                showError('Le fichier doit être une image');
+                return;
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                showError('L\'image ne doit pas dépasser 5MB');
+                return;
+            }
+
+            uploadButton.disabled = false;
+            dropZone.classList.add('has-preview');
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    previewImageUpload.src = e.target.result;
+                    previewImage.src = e.target.result;
+                    previewSize.textContent = formatFileSize(file.size);
+                    previewDimensions.textContent = `${img.width} x ${img.height}`;
+                    imageSizeElement.textContent = formatFileSize(file.size);
+                    
+                    previewContainer.classList.add('active');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            showToast('Image chargée avec succès', 'success');
         }
+
+        removePreview.addEventListener('click', () => {
+            previewContainer.classList.remove('active');
+            dropZone.classList.remove('has-preview');
+            uploadButton.disabled = true;
+            fileInput.value = '';
+            previewImageUpload.src = '';
+            previewImage.src = '';
+        });
+
+        let dragCounter = 0;
+        
+        // Gestionnaires d'événements pour le drag & drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        // Gestionnaire de clic sur la zone de dépôt
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Gestionnaire de changement de fichier
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        // Amélioration de la gestion du drag & drop global
+        document.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter++;
+            if (dragCounter === 1) {
+                dropZone.classList.add('drag-over');
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter--;
+            if (dragCounter === 0) {
+                dropZone.classList.remove('drag-over');
+            }
+        });
+
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            dropZone.classList.remove('drag-over');
+            if (e.target === dropZone) {
+                const file = e.dataTransfer.files[0];
+                handleFile(file);
+            }
+        });
+
+        // Ajout d'un effet de survol pour une meilleure UX
+        dropZone.addEventListener('mouseenter', () => {
+            if (!dropZone.classList.contains('has-preview')) {
+                dropZone.classList.add('hover');
+            }
+        });
+
+        dropZone.addEventListener('mouseleave', () => {
+            dropZone.classList.remove('hover');
+        });
 
         uploadButton.addEventListener('click', async () => {
             const file = fileInput.files[0];
