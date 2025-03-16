@@ -208,14 +208,6 @@ participer :
 
 Pour plus de détails, consultez le fichier [LICENSE](LICENSE) et [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 👥 Équipe
-
-- Chef de Projet : [Votre Nom]
-- Développeurs :
-    - [Membre 1]
-    - [Membre 2]
-- Design UI/UX : [Designer]
-
 ## 📞 Contact
 
 - LinkedIn : [BANGA Romaric](https://www.linkedin.com/in/romaric-banga/)
