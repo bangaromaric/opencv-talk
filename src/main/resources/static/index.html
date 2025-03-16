@@ -10,12 +10,14 @@
     <style>
         .preview-container {
             display: none;
-            margin: 20px 0;
+            margin: 20px auto;
             background: #f8f9fa;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
+            max-width: 600px;
+            width: 100%;
         }
 
         .preview-container.active {
@@ -66,11 +68,21 @@
 
         .preview-image-container {
             position: relative;
-            max-width: 100%;
+            width: 100%;
+            height: 400px;
             overflow: hidden;
             border-radius: 4px;
             background: #fff;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-image-container::before {
+            content: '';
+            display: block;
+            padding-top: 75%; /* 4:3 Aspect Ratio */
         }
 
         .preview-image {
@@ -78,6 +90,79 @@
             height: auto;
             display: block;
             transition: transform 0.3s ease;
+        }
+
+        #previewImageUpload {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* Style pour le conteneur d'image vide */
+        .preview-image-container:empty::after {
+            content: 'Aucune image';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ccc;
+            font-style: italic;
+        }
+
+        /* Ajout d'un fond quadrillé pour mieux voir les images transparentes */
+        .preview-image-container {
+            background-image: linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                            linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                            linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Media queries pour la responsivité */
+        @media (max-width: 768px) {
+            .preview-container {
+                max-width: 100%;
+                margin: 10px 0;
+                padding: 15px;
+            }
+
+            .preview-image-container {
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .preview-image-container {
+                height: 250px;
+            }
+        }
+
+        /* Amélioration de l'animation de chargement de l'image */
+        .preview-image-container.loading {
+            position: relative;
+        }
+
+        .preview-image-container.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
 
         .preview-info {
